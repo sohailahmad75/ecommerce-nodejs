@@ -5,7 +5,7 @@ const morgan = require ("morgan")
 const expressValidator = require("express-validator")
 const bodyParser = require ("body-parser")
 const cookieparser = require("cookie-parser")
-
+const cors = require('cors')
 // Import Router
 const authRouter = require ("./router/auth")
 const userRouter = require ("./router/user")
@@ -14,7 +14,7 @@ const productRouter = require ("./router/product")
 // app
 const app = express();
 
-
+app.use(cors())
 // db
 mongoose.connect(process.env.DATABASE, {
     useUnifiedTopology: true,
@@ -38,7 +38,7 @@ app.use("/api", userRouter)
 app.use("/api", categoryRouter)
 app.use("/api", productRouter)
 
-// Server 
+// Server
 const port = process.env.PORT ;
 app.listen(port, ()=>{
     console.log(`Server is running at ${port}`)

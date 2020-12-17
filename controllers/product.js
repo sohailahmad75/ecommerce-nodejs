@@ -21,12 +21,12 @@ exports.myAds = (req, res, next) => {
   console.log(req.profile._id);
   Product.find({ userId: req.profile._id }).exec((err, products) => {
     if (err) {
-        return res.status(400).json({
-          error: "Products not found",
-        });
-      }
+      return res.status(400).json({
+        error: "Products not found",
+      });
+    }
     //   products.map(product.photo = undefined)
-      res.json(products);
+    res.json(products);
   });
 };
 exports.listSearch = (req, res) => {
@@ -87,9 +87,41 @@ exports.list = (req, res) => {
       res.json(products);
     });
 };
+exports.editProduct = (req, res) => {
+  try {
+    let form = new formidable.IncomingForm();
+    form.keepExtensions = true;
+    form.parse(req, (err, fields, files) => {
+      if (err) {
+        res.status(400).json({
+          err: "Image Could not be uploaded!!!!!",
+        });
+      }
+      let photoData = null;
+      let contentType = null;
+      if (files.photo) {
+        photoData = fs.readFileSync(files.photo.path);
+        contentType = files.photo.type;
+      }
+
+      console.log("fields", fields);
+      console.log("files", files);
+      let photo = photoData ? { photo: { data: photoData, contentType } } : {};
+      Product.findOneAndUpdate(
+        { _id: mongoose.Types.ObjectId(fields.productId) },
+        { ...fields, ...photo },
+        { new: true }
+      ).then((response) => {
+        res.json({ response });
+      });
+    });
+  } catch (e) {
+    console.log(e.message);
+  }
+};
 exports.readProduct = (req, res) => {
   const product = req.product;
-  product.photo = undefined;
+  // product.photo = undefined;
   return res.json({
     product,
   });
@@ -174,14 +206,14 @@ exports.createProduct = (req, res) => {
       !location ||
       !userId ||
       !sDate ||
-      !eDate || 
+      !eDate ||
       !userName
     ) {
       return res.status(402).json({
         error: "All fields are required!!!!!!",
       });
     }
-    if (category === 'Please Select Category') {
+    if (category === "Please Select Category") {
       return res.status(402).json({
         error: "Category is required!!",
       });
@@ -195,7 +227,6 @@ exports.createProduct = (req, res) => {
       return res.status(402).json({
         error: "UserId is not defined!!!!!!!!",
       });
-     
     }
     const product = new Product(fields);
     if (files.photo) {
@@ -271,7 +302,9 @@ exports.updateBid = (req, res) => {
   });
 };
 exports.deleteProduct = (req, res) => {
-  console.log('dsafsdjhfhksdfjsajfkjsdakjfdsajfkljasklfjkasjkdfjklassssssssssssssssssssssssssssssssssssss')
+  console.log(
+    "dsafsdjhfhksdfjsajfkjsdakjfdsajfkljasklfjkasjkdfjklassssssssssssssssssssssssssssssssssssss"
+  );
   const product = req.product;
   product.remove((err, deletedProduct) => {
     if (err) {
@@ -286,24 +319,21 @@ exports.deleteProduct = (req, res) => {
 };
 
 exports.allProducts = (req, res) => {
-  
-  Product.find()
-    .exec((err, products) => {
-      if (err) {
-        return res.status(400).json({
-          error: "No Product found",
-        });
-      }
-      getAllProductsFromDB();
-      async function getAllProductsFromDB () {
-        await products.map((product)=> {
-            product.photo = undefined;
-            // user.hashed_password = undefined;
-            // user.salt = undefined;
-            // user.history = undefined;
-        })
-        res.json(products);
-      }
-
-    });
+  Product.find().exec((err, products) => {
+    if (err) {
+      return res.status(400).json({
+        error: "No Product found",
+      });
+    }
+    getAllProductsFromDB();
+    async function getAllProductsFromDB() {
+      await products.map((product) => {
+        product.photo = undefined;
+        // user.hashed_password = undefined;
+        // user.salt = undefined;
+        // user.history = undefined;
+      });
+      res.json(products);
+    }
+  });
 };
