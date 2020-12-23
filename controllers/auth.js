@@ -1,61 +1,81 @@
-const jwt = require("jsonwebtoken");
-require("dotenv").config();
-const expressJWT = require("express-jwt");
+const User = require("../models/user");
+const expressjwt = require("express-jwt"); //use for authorization check
+const jwt = require ("jsonwebtoken") //generate signin webtoken
+const {errorHandler} = require("../helper/dbErrorHandler")
 
-const User = require("../model/user");
+exports.signUp = (req, res) => {
+    console.log('req.body',req.body)
+    const user = new User(req.body);
+    user.save((err, result) =>{
+        if (err) {
+            return res.status(400).json({
+                 err : errorHandler (err)
+                
+            })
+        }
+        user.salt = undefined ;
+        user.hashed_password = undefined;
+        return res.status(200).json({
+            user : result
+        })
+    })   
+}
 
-exports.signup = async (req, res) => {
-  const userExist = await User.findOne({ email: req.body.email });
-  if (userExist) {
-    return res.status(403).json({
-      error: "Email is taken"
-    });
-  }
-  const user = await new User(req.body);
-  await user.save();
-  res.status(200).json({
-    message: "Sign Up successfully !!!! Please Login"
-  });
-};
+exports.signIn = (req, res) => {
+    const {email , password} = req.body;
+    // findONe(queryParameter, projection)
+    User.findOne({email}, (err,user) => {
+        if (err || !user) {
+            return res.status(400).json({
+                err : "User With this email Doesn't Exist !! Please SignUp" 
+            })
+        }
 
-exports.signin = (req, res) => {
-  // find the user based on id
-  const { email, password } = req.body;
-  User.findOne({ email }, (err, user) => {
-    // if error or no user
-    if (err || !user) {
-      return res.status(401).json({
-        error: "User with that email do not exist ! Please SignUp"
-      });
+        // User is found now match the email and passoword
+        if (!user.authenticate(password)) {
+            return res.status(400).json({
+                err: "Email and password Doesn't match . Please Try Again !!!"
+            })
+        }
+        // Generate token with user id and jwt secret 
+        const token = jwt.sign({id : user._id} , process.env.JWT_SECRET)  
+        res.cookie('t' , token ,  {expire : new Date()+ 9999})
+        const {_id, name , email , role, number} = user;
+        // return to frontENd user
+        return res.status(200).json({token , user : {_id, name , email , role, number}})
+
+    })
+}
+exports.signOut = (req, res) => {
+    res.clearCookie('t')
+    return res.json({
+        message : "User SignOut Successfully!!"
+    })
+}
+
+exports.requireSignIn = expressjwt({
+    secret : process.env.JWT_SECRET,
+    userProperty : "auth"
+})
+
+exports.isAuth = (req, res, next) => {     
+    
+    let user = req.profile && req.auth && req.profile._id == req.auth.id ; 
+    if (!user) {
+        res.status(403).json({
+            err : "Access Denied"
+        })
     }
-    // if user is found make sure that the email and password is match
-    // create authenticate method and user here
-    if (!user.authenticate(password)) {
-      return res.status(401).json({
-        error: "Email and password do not match"
-      });
+    next();
+
+}
+
+exports.isAdmin = (req, res , next) => {
+    console.log('req.profile', req.profile)
+    if (req.profile.role === 0) {
+        res.status(403).json({
+            err : "Access Denied !!! Admin Resourse"
+        })
     }
-    //generate token using userid and env secret
-    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
-    //persist the token as 't' in cooki with expiry date
-
-    res.cookie("t", token, { expire: new Date() + 9999 });
-    // return respose with user to front end client
-    const { _id, name, email } = user;
-    return res.json({ token, user: { _id, name, email } });
-  });
-};
-
-exports.signout = (req, res) => {
-  res.clearCookie("t");
-  return res.json({
-    message: "Logout Successfully!!!!!!!!!!"
-  });
-};
-
-exports.requiresignin = expressJWT({
-  //If the token is valid, exprss fwt appends the verified user id
-  //in the auth key to req object
-  secret: process.env.JWT_SECRET,
-  userProperty: "auth"
-});
+    next();
+}
